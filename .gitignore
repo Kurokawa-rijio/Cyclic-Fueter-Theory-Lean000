@@ -1,0 +1,13 @@
+.lake/
+.elan/
+*.olean
+*.ilean
+*.trace
+*.hash
+*.c
+*.o
+*.so
+*.dll
+*.exe
+Thumbs.db
+.DS_Store
