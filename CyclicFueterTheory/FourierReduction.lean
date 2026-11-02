@@ -2,6 +2,7 @@ import Mathlib.Analysis.Fourier.ZMod
 import CyclicFueterTheory.NullityFormula
 import CyclicFueterTheory.LinearConjugation
 import CyclicFueterTheory.CyclicOperator
+import CyclicFueterTheory.SymbolPolynomial
 
 /-!
 # Change of coordinates by the finite Fourier transform
@@ -58,6 +59,86 @@ theorem dft_add_translate {N : ℕ} [NeZero N] {E : Type*}
           rw [← Finset.smul_sum]
     _ = ZMod.stdAddChar (c * k) • ZMod.dft f k := by
       rw [ZMod.dft_apply]
+
+/-- An additive character sends an `m`-fold sum to the `m`th power. -/
+private theorem stdAddChar_nsmul_pow {N : ℕ} [NeZero N]
+    (x : ZMod N) (m : ℕ) :
+    ZMod.stdAddChar (m • x) = ZMod.stdAddChar x ^ m := by
+  induction m with
+  | zero => simp
+  | succ m ih =>
+      change ZMod.stdAddChar (m • x + x) =
+        ZMod.stdAddChar x ^ (m + 1)
+      calc
+        ZMod.stdAddChar (m • x + x) =
+            ZMod.stdAddChar (m • x) * ZMod.stdAddChar x :=
+          AddChar.map_add_eq_mul ZMod.stdAddChar (m • x) x
+        _ = ZMod.stdAddChar x ^ m * ZMod.stdAddChar x := by rw [ih]
+        _ = ZMod.stdAddChar x ^ (m + 1) := by rw [pow_succ]
+
+/-- The DFT character at frequency `k` is the `j.val`th power of the root
+`stdAddChar (-k)`. -/
+theorem stdAddChar_neg_mul_eq_pow_val {N : ℕ} [NeZero N]
+    (j k : ZMod N) :
+    ZMod.stdAddChar (-(j * k)) = ZMod.stdAddChar (-k) ^ j.val := by
+  have harg : -(j * k) = j.val • (-k) := by
+    rw [← ZMod.natCast_zmod_val j]
+    simp [nsmul_eq_mul]
+    ring
+  rw [harg, stdAddChar_nsmul_pow]
+
+/-- Polynomial interpolant for a complex coordinate tuple on `ZMod N`, using
+the standard representatives `j.val` as exponents. -/
+def zmodCoordinatePolynomial {N : ℕ} [NeZero N]
+    (coeff : ZMod N → ℂ) : Polynomial ℂ :=
+  ∑ j : ZMod N, Polynomial.C (coeff j) * Polynomial.X ^ j.val
+
+/-- Evaluating the ZMod-coordinate interpolant at the Fourier root gives its
+DFT coefficient. -/
+theorem eval_zmodCoordinatePolynomial_at_fourierRoot {N : ℕ} [NeZero N]
+    (coeff : ZMod N → ℂ) (k : ZMod N) :
+    Polynomial.eval (ZMod.stdAddChar (-k)) (zmodCoordinatePolynomial coeff) =
+      ZMod.dft coeff k := by
+  classical
+  simp [zmodCoordinatePolynomial, ZMod.dft_apply,
+    stdAddChar_neg_mul_eq_pow_val, smul_eq_mul, mul_comm]
+
+/-- Evaluate each coordinate interpolant of a paravector tuple at a complex
+number. -/
+def zmodParavectorSymbolPolynomialAt {N n : ℕ} [NeZero N]
+    (a : ZMod N → Paravector ℂ n) (z : ℂ) : Paravector ℂ n where
+  scalarPart := Polynomial.eval z
+    (zmodCoordinatePolynomial fun j => (a j).scalarPart)
+  vectorPart := fun i => Polynomial.eval z
+    (zmodCoordinatePolynomial fun j => (a j).vectorPart i)
+
+/-- The DFT paravector symbol is the coordinatewise polynomial symbol at the
+corresponding Fourier root. -/
+theorem dftParavectorSymbol_eq_polynomialAt_fourierRoot {N n : ℕ}
+    [NeZero N] (a : ZMod N → Paravector ℂ n) (k : ZMod N) :
+    dftParavectorSymbol a k =
+      zmodParavectorSymbolPolynomialAt a (ZMod.stdAddChar (-k)) := by
+  apply Paravector.ext
+  · exact (eval_zmodCoordinatePolynomial_at_fourierRoot
+      (fun j => (a j).scalarPart) k).symm
+  · funext i
+    exact (eval_zmodCoordinatePolynomial_at_fourierRoot
+      (fun j => (a j).vectorPart i) k).symm
+
+/-- The norm polynomial of the ZMod-indexed complex coefficient tuple. -/
+def zmodNormPolynomial {N n : ℕ} [NeZero N]
+    (a : ZMod N → Paravector ℂ n) : Polynomial ℂ :=
+  (zmodCoordinatePolynomial fun j => (a j).scalarPart) ^ 2 +
+    ∑ i : Fin n,
+      (zmodCoordinatePolynomial fun j => (a j).vectorPart i) ^ 2
+
+/-- Evaluating the ZMod-indexed norm polynomial recovers the paravector norm. -/
+theorem eval_zmodNormPolynomial_eq_normSq_symbol {N n : ℕ} [NeZero N]
+    (a : ZMod N → Paravector ℂ n) (z : ℂ) :
+    Polynomial.eval z (zmodNormPolynomial a) =
+      Paravector.normSq (zmodParavectorSymbolPolynomialAt a z) := by
+  simp [zmodNormPolynomial, zmodParavectorSymbolPolynomialAt,
+    zmodCoordinatePolynomial, Paravector.normSq]
 
 /-- Embed a complex paravector tuple as a Clifford-valued coefficient
 function. -/

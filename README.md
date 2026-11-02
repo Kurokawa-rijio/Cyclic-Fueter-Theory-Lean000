@@ -29,8 +29,10 @@ is not included in this repository.
   the `r+c` indexing), and reduces the kernel dimension to a sum of local
   Clifford multiplication kernels. It also states the corrected nullity
   formula and transports it back to the manuscript's `Fin N` indexing.
-  Identification with the polynomial-evaluated symbol, the real-to-complex
-  scalar extension, and gcd corollaries remain open.
+  It also identifies each DFT coordinate with evaluation of an intermediate
+  `ZMod N`-indexed complex coordinate polynomial. Comparing that polynomial
+  with the manuscript's real `Fin N` polynomial, the real-to-complex scalar
+  extension, and gcd corollaries remain open.
 - `CyclicFueterTheory/CyclicOperator.lean` and
   `CyclicFueterTheory/SymbolPolynomial.lean` encode the cyclic operator and
   polynomial symbol data, including the norm-polynomial evaluation identity.
