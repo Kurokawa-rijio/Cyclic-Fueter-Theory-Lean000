@@ -56,6 +56,57 @@ theorem finrank_ker_conjugate_eq {K V : Type*} [Field K]
       Module.finrank K (LinearMap.ker (conjugateEnd F A)) := by
   exact LinearEquiv.finrank_eq (kernelEquivConjugate F A)
 
+/-- Transport an endomorphism between two different but linearly equivalent
+function spaces. -/
+def conjugateEndBetween {K V W : Type*} [Semiring K]
+    [AddCommMonoid V] [Module K V] [AddCommMonoid W] [Module K W]
+    (F : V ≃ₗ[K] W) (A : V →ₗ[K] V) : W →ₗ[K] W :=
+  F.toLinearMap.comp (A.comp F.symm.toLinearMap)
+
+/-- The map underlying a conjugated operator between equivalent spaces is
+the transported map on inputs and outputs. -/
+@[simp]
+theorem conjugateEndBetween_apply {K V W : Type*} [Semiring K]
+    [AddCommMonoid V] [Module K V] [AddCommMonoid W] [Module K W]
+    (F : V ≃ₗ[K] W) (A : V →ₗ[K] V) (y : W) :
+    conjugateEndBetween F A y = F (A (F.symm y)) := rfl
+
+/-- The linear equivalence transports the kernel across equivalent spaces. -/
+def kernelEquivConjugateBetween {K V W : Type*} [DivisionRing K]
+    [AddCommGroup V] [Module K V] [AddCommGroup W] [Module K W]
+    (F : V ≃ₗ[K] W) (A : V →ₗ[K] V) :
+    LinearMap.ker A ≃ₗ[K] LinearMap.ker (conjugateEndBetween F A) where
+  toFun x := ⟨F x.1, by
+    apply LinearMap.mem_ker.mpr
+    have hx := congrArg F (LinearMap.mem_ker.mp x.2)
+    simpa [conjugateEndBetween] using hx⟩
+  invFun y := ⟨F.symm y.1, by
+    apply LinearMap.mem_ker.mpr
+    apply F.injective
+    have hy := LinearMap.mem_ker.mp y.2
+    simpa [conjugateEndBetween] using hy⟩
+  left_inv x := by
+    apply Subtype.ext
+    simp
+  right_inv y := by
+    apply Subtype.ext
+    simp
+  map_add' x y := by
+    apply Subtype.ext
+    simp
+  map_smul' c x := by
+    apply Subtype.ext
+    simp
+
+/-- Kernel dimension is unchanged when an operator is reindexed through a
+linear equivalence between different function spaces. -/
+theorem finrank_ker_conjugateBetween_eq {K V W : Type*} [Field K]
+    [AddCommGroup V] [Module K V] [AddCommGroup W] [Module K W]
+    [FiniteDimensional K V] (F : V ≃ₗ[K] W) (A : V →ₗ[K] V) :
+    Module.finrank K (LinearMap.ker A) =
+      Module.finrank K (LinearMap.ker (conjugateEndBetween F A)) := by
+  exact LinearEquiv.finrank_eq (kernelEquivConjugateBetween F A)
+
 /-- Change coordinates independently in the domain and codomain of an
 endomorphism. -/
 def changeCoordinatesEnd {K V : Type*} [Semiring K]

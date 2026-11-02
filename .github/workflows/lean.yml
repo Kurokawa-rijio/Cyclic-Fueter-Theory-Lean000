@@ -9,14 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install elan and resolve Lake dependencies
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://elan.lean-lang.org/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake update
       - uses: leanprover/lean-action@v1
         with:
-          auto-config: false
-          build: false
-          use-mathlib-cache: false
-      - name: Resolve and lock Lake dependencies
-        run: lake update
-      - name: Fetch Mathlib cache
-        run: lake exe cache get
-      - name: Build Lean project
-        run: lake build
+          build: true
+          use-mathlib-cache: true

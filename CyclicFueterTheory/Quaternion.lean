@@ -82,6 +82,130 @@ theorem conj_mul (a b : Quaternion) :
   fin_cases r <;>
     simp [mul, conj, re, imI, imJ, imK] <;> ring
 
+/-- Quaternion multiplication is additive in its left argument. -/
+theorem mul_add_left (a b c : Quaternion) :
+    mul (a + b) c = mul a c + mul b c := by
+  funext r
+  fin_cases r <;>
+    simp [mul, re, imI, imJ, imK] <;> ring
+
+/-- Quaternion multiplication is additive in its right argument. -/
+theorem mul_add_right (a b c : Quaternion) :
+    mul a (b + c) = mul a b + mul a c := by
+  funext r
+  fin_cases r <;>
+    simp [mul, re, imI, imJ, imK] <;> ring
+
+/-- Quaternion multiplication is homogeneous in its left argument. -/
+theorem mul_smul_left (t : ℝ) (a b : Quaternion) :
+    mul (t • a) b = t • mul a b := by
+  funext r
+  fin_cases r <;>
+    simp [mul, re, imI, imJ, imK, smul_eq_mul] <;> ring
+
+/-- Quaternion multiplication is homogeneous in its right argument. -/
+theorem mul_smul_right (t : ℝ) (a b : Quaternion) :
+    mul a (t • b) = t • mul a b := by
+  funext r
+  fin_cases r <;>
+    simp [mul, re, imI, imJ, imK, smul_eq_mul] <;> ring
+
+/-- Left multiplication by a fixed quaternion is a real-linear map. -/
+def leftMultiplication (a : Quaternion) : Quaternion →ₗ[ℝ] Quaternion where
+  toFun b := mul a b
+  map_add' b c := mul_add_right a b c
+  map_smul' t b := mul_smul_right t a b
+
+/-- Right multiplication by a fixed quaternion is a real-linear map. -/
+def rightMultiplication (a : Quaternion) : Quaternion →ₗ[ℝ] Quaternion where
+  toFun b := mul b a
+  map_add' b c := mul_add_left b c a
+  map_smul' t b := mul_smul_left t b a
+
+/-- The real `4 × 4` matrix of left multiplication by a quaternion in the
+coordinate basis `(1,i,j,k)`. -/
+def leftMultiplicationMatrix (q : Quaternion) : Matrix (Fin 4) (Fin 4) ℝ :=
+  fun r c =>
+    match r.val, c.val with
+    | 0, 0 => q.re
+    | 0, 1 => -q.imI
+    | 0, 2 => -q.imJ
+    | 0, 3 => -q.imK
+    | 1, 0 => q.imI
+    | 1, 1 => q.re
+    | 1, 2 => -q.imK
+    | 1, 3 => q.imJ
+    | 2, 0 => q.imJ
+    | 2, 1 => q.imK
+    | 2, 2 => q.re
+    | 2, 3 => -q.imI
+    | 3, 0 => q.imK
+    | 3, 1 => -q.imJ
+    | 3, 2 => q.imI
+    | 3, 3 => q.re
+    | _, _ => 0
+
+/-- The real `4 × 4` matrix of right multiplication by a quaternion in the
+coordinate basis `(1,i,j,k)`. -/
+def rightMultiplicationMatrix (q : Quaternion) : Matrix (Fin 4) (Fin 4) ℝ :=
+  fun r c =>
+    match r.val, c.val with
+    | 0, 0 => q.re
+    | 0, 1 => -q.imI
+    | 0, 2 => -q.imJ
+    | 0, 3 => -q.imK
+    | 1, 0 => q.imI
+    | 1, 1 => q.re
+    | 1, 2 => q.imK
+    | 1, 3 => -q.imJ
+    | 2, 0 => q.imJ
+    | 2, 1 => -q.imK
+    | 2, 2 => q.re
+    | 2, 3 => q.imI
+    | 3, 0 => q.imK
+    | 3, 1 => q.imJ
+    | 3, 2 => -q.imI
+    | 3, 3 => q.re
+    | _, _ => 0
+
+/-- The coordinate matrix above acts by quaternionic left multiplication. -/
+theorem leftMultiplicationMatrix_mulVec (q x : Quaternion) :
+    (leftMultiplicationMatrix q).mulVec x = mul q x := by
+  funext r
+  rw [Matrix.mulVec_apply_eq_sum]
+  fin_cases r <;>
+    simp [leftMultiplicationMatrix, mul, re, imI, imJ, imK,
+      Fin.sum_univ_succ] <;> ring
+
+/-- The coordinate matrix above acts by quaternionic right multiplication. -/
+theorem rightMultiplicationMatrix_mulVec (q x : Quaternion) :
+    (rightMultiplicationMatrix q).mulVec x = mul x q := by
+  funext r
+  rw [Matrix.mulVec_apply_eq_sum]
+  fin_cases r <;>
+    simp [rightMultiplicationMatrix, mul, re, imI, imJ, imK,
+      Fin.sum_univ_succ] <;> ring
+
+/-- The composition of left multiplication maps follows quaternion
+multiplication order. -/
+theorem leftMultiplication_comp (a b : Quaternion) :
+    (leftMultiplication a).comp (leftMultiplication b) =
+      leftMultiplication (mul a b) := by
+  apply LinearMap.ext
+  intro x
+  change mul a (mul b x) = mul (mul a b) x
+  exact (mul_assoc a b x).symm
+
+/-- The composition of right multiplication maps reverses the order of the
+fixed factors. -/
+theorem rightMultiplication_comp (a b : Quaternion) :
+    (rightMultiplication a).comp (rightMultiplication b) =
+      rightMultiplication (mul b a) := by
+  apply LinearMap.ext
+  intro x
+  change mul (mul x b) a = mul x (mul b a)
+  exact mul_assoc x b a
+
 theorem one_mul (q : Quaternion) : mul one q = q := by
   funext r
   fin_cases r <;> simp [mul, one, re, imI, imJ, imK]

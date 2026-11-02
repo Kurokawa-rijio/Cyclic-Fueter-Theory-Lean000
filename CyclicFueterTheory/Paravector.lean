@@ -17,6 +17,18 @@ structure Paravector (R : Type*) [CommRing R] (n : ℕ) where
 
 namespace Paravector
 
+@[ext]
+theorem ext {R : Type*} [CommRing R] {n : ℕ} {p q : Paravector R n}
+    (hscalar : p.scalarPart = q.scalarPart)
+    (hvector : p.vectorPart = q.vectorPart) : p = q := by
+  cases p
+  cases q
+  simp_all
+
+end Paravector
+
+namespace Paravector
+
 /-- The quadratic norm form on paravectors. -/
 def normSq {R : Type*} [CommRing R] {n : ℕ} (p : Paravector R n) : R :=
   p.scalarPart ^ 2 + ∑ i : Fin n, (p.vectorPart i) ^ 2

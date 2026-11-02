@@ -1,38 +1,47 @@
-# Source-to-Lean status
+# Formalization status
 
-The source is the user's draft `CyclicFueterTheory_full.pdf`. The manuscript
-contains chapter-by-chapter SymPy/NumPy verification scripts as well as
-mathematical proofs. A script assertion is a computational check; it is not
-automatically a proof of the general theorem. Each translated claim must be
-classified as either a general Lean theorem or a finite, explicitly bounded
-computation.
+## Build-checked core
 
-| Source area | Lean module | State |
+The project was built successfully on 2026-11-02 with Lean 4.35.0 and the
+Mathlib revision pinned by `lake-manifest.json`. The default target
+`CyclicFueterTheory` imports every project module. The source contains no
+`sorry`, `admit`, or project-declared `axiom`.
+
+| Source area | Lean module | Verified result |
 |---|---|---|
-| Quaternion coordinates and arithmetic | `CyclicFueterTheory/Quaternion.lean` | Initial source written; awaiting Lean build |
-| Left/right multiplication matrices and quaternionic linear algebra | planned | Not started |
-| Cyclic shifts, coefficient matrix, and Fourier modes | planned | Not started |
-| Clifford algebra convention and paravectors | `CyclicFueterTheory/Clifford.lean`, `CyclicFueterTheory/Paravector.lean` | In progress: coefficient-ring-general negative Euclidean form, generator relations, dimension `2^n`, paravector embedding, and both norm identities are written; blade basis, involutions, and proofs of later rank lemmas remain |
-| Linear algebra rank helper | `CyclicFueterTheory/KernelRank.lean` | In progress: proves `ker A = range A` and the half-dimension conclusion from `A² = 0` and `AB + BA = 1` |
-| Cyclic paravector operator | `CyclicFueterTheory/CyclicOperator.lean`, `CyclicFueterTheory/FourierReduction.lean` | Defines the manuscript's `Fin N` block map and a `ZMod N` version; Fourier reduction is written but not built |
-| Paravector symbol polynomials | `CyclicFueterTheory/SymbolPolynomial.lean` | In progress: defines coordinate and norm polynomials and states the evaluation identity relating `T(z)` to the complex mode norm |
-| Local mode kernel dimensions | `CyclicFueterTheory/ModewiseKernel.lean` | Proof terms are written for zero, nonzero-norm, and nonzero isotropic symbols; the isotropic proof uses contraction or grade involution; not built |
-| Corrected mode-count aggregation | `CyclicFueterTheory/NullityFormula.lean` | Proof terms give the corrected finite-mode sum for actual paravector left-multiplication kernels; not built |
-| Fourier change of coordinates | `CyclicFueterTheory/FourierReduction.lean` | Proof terms cover the `ZMod N` DFT formula, reflected input mode, mode-kernel sum, corrected nullity formula, and transport from `Fin N` to `ZMod N`; a ZMod-indexed complex interpolation polynomial is identified with each DFT mode; transport of the manuscript's real `Fin N` polynomials to this representation remains; not built |
-| Isotropic paravector half-rank theorem | `CyclicFueterTheory/ModewiseKernel.lean` | Proof term written; not built |
-| Corrected nullity theorem and gcd corollaries | partially `CyclicFueterTheory/FourierReduction.lean` | Corrected formula is written for complex paravector coefficients and `Fin N` cyclic indexing; real-to-complex scalar extension, polynomial root evaluation, and gcd corollaries remain |
-| Remaining analytic and structural chapters | planned | Not started |
-| Appendix B retractions/corrections | source guardrail | Retracted statements are not theorem targets |
+| Quaternion coordinates and arithmetic | `CyclicFueterTheory/Quaternion.lean` | Quaternion arithmetic, associativity, conjugation, squared-norm multiplicativity, Hamilton basis relations, real-linearity of left/right multiplication, explicit `4 × 4` matrices, and composition identities compile. Determinant/rank consequences are not included. |
+| Clifford convention and dimension | `CyclicFueterTheory/Clifford.lean` | Negative Euclidean form, generator square and anticommutator, and dimension `2^n` compile. A manuscript-specific blade-basis development and its involutions are not included. |
+| Paravectors | `CyclicFueterTheory/Paravector.lean` | Coordinate structure, zero/isotropic predicates, Clifford embedding and conjugate, norm-product identities, and extensionality compile. |
+| Kernel/rank lemmas | `CyclicFueterTheory/KernelRank.lean` | The kernel/range equality and half-dimension lemma from the stated square-zero and anticommutator hypotheses compile. |
+| Local Fourier-mode kernels | `CyclicFueterTheory/ModewiseKernel.lean` | Zero, nonzero-norm, and nonzero-isotropic left-multiplication kernel dimensions compile. |
+| Finite-mode aggregation | `CyclicFueterTheory/NullityFormula.lean` | The corrected sum of actual mode-kernel dimensions, `2^n N₀ + 2^(n-1) N_iso`, compiles. |
+| Cyclic operator and Fourier reduction | `CyclicFueterTheory/CyclicOperator.lean`, `CyclicFueterTheory/FourierReduction.lean` | The `Fin N` and `ZMod N` operators, the DFT translation rule, reflected input frequency for the `r+c` convention, the modewise kernel sum, the corrected complex-coefficient nullity formula, and transport between the two index types compile. |
+| Polynomial symbols and roots | `CyclicFueterTheory/SymbolPolynomial.lean`, `CyclicFueterTheory/FourierReduction.lean` | Coordinate and norm polynomials, evaluation at Fourier roots, and the description of nonzero isotropic modes as norm roots minus zero-symbol modes compile. The corrected formula is also proved for the complexification of real manuscript coefficients. |
 
-The main theorem's source statement is
+## Still outside this verified core
 
-```text
-dim_R ker H_N(a) = 2^(n-1) * N_iso + 2^n * N_0
+- Equality between the real-linear kernel dimension in the manuscript and the
+  complexified kernel dimension proved here.
+- Conversion of finite Fourier-root counts to polynomial gcd degrees.
+- A separate explicit coefficient-matrix representation and its matrix
+  identities for the cyclic operator.
+- Quaternion determinant/rank consequences.
+- The manuscript's remaining analytic and structural chapters and its finite
+  verification scripts. Retracted statements in Appendix B are not theorem
+  targets.
+
+Therefore, the corrected nullity theorem is verified for complex paravector
+coefficients and for real coefficient data after complexification. This does
+not yet amount to a complete Lean translation of the entire PDF or of the
+original real-linear statement.
+
+## Reproduce the build
+
+From the project root, with Lean 4.35.0 installed:
+
+```powershell
+lake exe cache get
+lake build
 ```
 
-where `N_iso` counts nonzero isotropic Fourier modes and `N_0` counts modes
-where the whole paravector symbol vanishes. The uncorrected short gcd formula
-that omits the `N_0` contribution is not to be formalized as a theorem.
-
-No row is marked complete until a GitHub build using the pinned toolchain
-passes and the relevant theorem dependency audit is clean.
+`lake-manifest.json` is included to keep the dependency revision fixed.

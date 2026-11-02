@@ -30,7 +30,7 @@ theorem negativeEuclideanForm_apply {R : Type*} [CommRing R] (n : ℕ) (x : Fin 
   simp [negativeEuclideanForm, QuadraticMap.proj_apply, pow_two]
 
 /-- The `i`th standard basis vector of the vector space used to generate the algebra. -/
-def cliffordBasisVector {R : Type*} (n : ℕ) (i : Fin n) : Fin n → R :=
+def cliffordBasisVector {R : Type*} [CommRing R] (n : ℕ) (i : Fin n) : Fin n → R :=
   Pi.single i 1
 
 /-- The quadratic form takes value `-1` on each standard basis vector. -/
@@ -52,7 +52,9 @@ def cliffordGenerator {R : Type*} [CommRing R] (n : ℕ) (i : Fin n) : Clifford 
 theorem cliffordGenerator_sq {R : Type*} [CommRing R] (n : ℕ) (i : Fin n) :
     cliffordGenerator (R := R) n i * cliffordGenerator (R := R) n i =
       algebraMap R (Clifford R n) (-1) := by
-  simp [cliffordGenerator]
+  unfold cliffordGenerator
+  rw [CliffordAlgebra.ι_sq_scalar]
+  rw [negativeEuclideanForm_basis]
 
 /-- Polarisation of the negative Euclidean form is minus twice the dot product. -/
 theorem negativeEuclideanForm_polar {R : Type*} [CommRing R] (n : ℕ)
@@ -112,9 +114,20 @@ theorem cliffordGenerator_anticommutator {R : Type*} [CommRing R] (n : ℕ)
       (Q := negativeEuclideanForm (R := R) n)
       (cliffordBasisVector (R := R) n i) (cliffordBasisVector (R := R) n j))
 
+/-- The finite exterior-algebra basis transports to finite dimensionality of
+the Clifford algebra. -/
+noncomputable instance cliffordFiniteDimensional {R : Type*} [Field R]
+    [Invertible (2 : R)] (n : ℕ) : FiniteDimensional R (Clifford R n) := by
+  let b : Module.Basis (Finset (Fin n)) R (ExteriorAlgebra R (Fin n → R)) :=
+    Module.Basis.ExteriorAlgebra (Pi.basisFun R (Fin n))
+  letI : FiniteDimensional R (ExteriorAlgebra R (Fin n → R)) :=
+    b.finiteDimensional_of_finite
+  let e := CliffordAlgebra.equivExterior (negativeEuclideanForm (R := R) n)
+  exact FiniteDimensional.of_injective e.toLinearMap e.injective
+
 /-- The dimension of `Cl(0,n)` over its coefficient field is `2^n`, via its module equivalence
 with the exterior algebra. -/
-noncomputable theorem clifford_finrank {R : Type*} [Field R] [Invertible (2 : R)]
+theorem clifford_finrank {R : Type*} [Field R] [Invertible (2 : R)]
     (n : ℕ) : Module.finrank R (Clifford R n) = 2 ^ n := by
   classical
   calc

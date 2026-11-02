@@ -1,5 +1,6 @@
 import CyclicFueterTheory.Paravector
 import CyclicFueterTheory.LinearConjugation
+import CyclicFueterTheory.KernelRank
 import Mathlib.LinearAlgebra.CliffordAlgebra.Conjugation
 
 /-!
@@ -41,6 +42,7 @@ theorem involute_toClifford_eq_conjugate {n : ℕ} (p : Paravector ℂ n) :
     CliffordAlgebra.involute (Paravector.toClifford p) =
       Paravector.conjugateInClifford p := by
   simp [Paravector.toClifford, Paravector.conjugateInClifford]
+  abel
 
 /-- Grade involution identifies the kernels of left multiplication by a
 paravector and by its scalar-minus-vector conjugate. -/
@@ -77,7 +79,7 @@ theorem paravectorLeftMul_ker_eq_bot_of_normSq_ne_zero
   constructor
   · intro hx
     have hxmul : Paravector.toClifford p * x = 0 := by
-      simpa [paravectorLeftMul] using hx
+      simpa [paravectorLeftMul, cliffordLeftMul] using hx
     have hscalar :
         algebraMap ℂ (Clifford ℂ n) (Paravector.normSq p) * x = 0 := by
       calc
@@ -106,17 +108,20 @@ theorem paravectorLeftMul_ker_finrank_eq_zero_of_normSq_ne_zero
 /-- If every coordinate of the symbol vanishes, left multiplication is the zero map. -/
 theorem paravectorLeftMul_eq_zero_of_isZero {n : ℕ} (p : Paravector ℂ n)
     (hp : Paravector.isZero p) : paravectorLeftMul p = 0 := by
+  rcases hp with ⟨hs, hv⟩
+  have hv0 : p.vectorPart = 0 := funext hv
   apply LinearMap.ext
   intro x
-  simp [paravectorLeftMul, Paravector.toClifford, Paravector.isZero, hp]
+  change Paravector.toClifford p * x = 0
+  simp [Paravector.toClifford, hs, hv0]
 
 /-- The zero symbol contributes the full Clifford dimension to the kernel. -/
 theorem paravectorLeftMul_ker_finrank_eq_pow_of_isZero
     {n : ℕ} (p : Paravector ℂ n) (hp : Paravector.isZero p) :
     Module.finrank ℂ (LinearMap.ker (paravectorLeftMul p)) = 2 ^ n := by
   rw [paravectorLeftMul_eq_zero_of_isZero p hp]
-  simp only [LinearMap.ker_zero]
-  rw [clifford_finrank]
+  rw [LinearMap.ker_zero, finrank_top]
+  exact clifford_finrank (R := ℂ) n
 
 /-- A nonzero isotropic paravector whose scalar part is zero has a
 contraction partner with anticommutator one. -/
@@ -219,18 +224,16 @@ private theorem paravectorLeftMul_ker_finrank_eq_half_of_scalar_ne_zero
           algebraMap ℂ (Clifford ℂ n) p.scalarPart +
             algebraMap ℂ (Clifford ℂ n) p.scalarPart := by
         simp [Paravector.toClifford, Paravector.conjugateInClifford]
-        abel
       _ = algebraMap ℂ (Clifford ℂ n) (2 * p.scalarPart) := by
         rw [← map_add]
         congr 1
         ring
   have hSum : A + B = c • LinearMap.id := by
     ext x
-    change (Paravector.toClifford p +
-        Paravector.conjugateInClifford p) * x = c • x
-    rw [hsumCoeff]
+    change Paravector.toClifford p * x +
+        Paravector.conjugateInClifford p * x = c • x
+    rw [← add_mul, hsumCoeff]
     rw [← Algebra.smul_def]
-    simp [c]
   have hKernel : Module.finrank ℂ (LinearMap.ker A) =
       Module.finrank ℂ (LinearMap.ker B) := by
     simpa [A, B] using paravectorLeftMul_ker_finrank_eq_conjugate p
@@ -264,7 +267,9 @@ theorem paravectorLeftMul_ker_finrank_eq_half_of_isNonzeroIsotropic
 
 /-- The three local mode cases: zero symbol, nonzero isotropic symbol, or
 non-isotropic symbol. -/
-theorem paravectorLeftMul_ker_finrank_eq_cases {n : ℕ} (p : Paravector ℂ n) :
+theorem paravectorLeftMul_ker_finrank_eq_cases {n : ℕ} (p : Paravector ℂ n)
+    [Decidable (Paravector.isZero p)]
+    [Decidable (Paravector.isNonzeroIsotropic p)] :
     Module.finrank ℂ (LinearMap.ker (paravectorLeftMul p)) =
       if Paravector.isZero p then 2 ^ n
       else if Paravector.isNonzeroIsotropic p then 2 ^ (n - 1)

@@ -12,18 +12,18 @@ namespace CyclicFueterTheory
 
 /-- The finite number of modes at which all symbol coordinates vanish. -/
 noncomputable def zeroModeCount {α : Type*} [Fintype α] {n : ℕ}
-    (p : α → Paravector ℂ n) : ℕ := by
-  classical
-  exact (Finset.univ.filter fun k => Paravector.isZero (p k)).card
+    (p : α → Paravector ℂ n)
+    [DecidablePred (fun k : α => Paravector.isZero (p k))] : ℕ :=
+  (Finset.univ.filter fun k => Paravector.isZero (p k)).card
 
 /-- The finite number of nonzero isotropic symbol modes. -/
 noncomputable def isotropicModeCount {α : Type*} [Fintype α] {n : ℕ}
-    (p : α → Paravector ℂ n) : ℕ := by
-  classical
-  exact (Finset.univ.filter fun k => Paravector.isNonzeroIsotropic (p k)).card
+    (p : α → Paravector ℂ n)
+    [DecidablePred (fun k : α => Paravector.isNonzeroIsotropic (p k))] : ℕ :=
+  (Finset.univ.filter fun k => Paravector.isNonzeroIsotropic (p k)).card
 
 private theorem sum_if_scale_card_filter {α : Type*} [Fintype α]
-    (P : α → Prop) (c : ℕ) :
+    (P : α → Prop) [DecidablePred P] (c : ℕ) :
     (∑ k : α, if P k then c else 0) = c * (Finset.univ.filter P).card := by
   classical
   have hcard :
@@ -52,6 +52,8 @@ paravector local-kernel theorem.
 -/
 theorem sum_modeNullity_eq_corrected_formula {α : Type*} [Fintype α]
     {n : ℕ} (p : α → Paravector ℂ n) (modeNullity : α → ℕ)
+    [DecidablePred (fun k : α => Paravector.isZero (p k))]
+    [DecidablePred (fun k : α => Paravector.isNonzeroIsotropic (p k))]
     (hlocal : ∀ k,
       modeNullity k =
         if Paravector.isZero (p k) then 2 ^ n
@@ -72,17 +74,18 @@ theorem sum_modeNullity_eq_corrected_formula {α : Type*} [Fintype α]
       · simp [hz, hi]
       · simp [hz, hi]
   calc
-    (∑ k : α, modeNullity k) =
-        ∑ k : α,
+    Finset.univ.sum (fun k : α => modeNullity k) =
+        Finset.univ.sum (fun k : α =>
           (if Paravector.isZero (p k) then 2 ^ n else 0) +
-            (if Paravector.isNonzeroIsotropic (p k) then 2 ^ (n - 1) else 0) := by
+            (if Paravector.isNonzeroIsotropic (p k) then 2 ^ (n - 1) else 0)) := by
       apply Finset.sum_congr rfl
       intro k hk
       rw [hlocal k]
       exact hsplit k
-    _ = (∑ k : α, if Paravector.isZero (p k) then 2 ^ n else 0) +
-          (∑ k : α,
-            if Paravector.isNonzeroIsotropic (p k) then 2 ^ (n - 1) else 0) :=
+    _ = (Finset.univ.sum (fun k : α =>
+            if Paravector.isZero (p k) then 2 ^ n else 0)) +
+          (Finset.univ.sum (fun k : α =>
+            if Paravector.isNonzeroIsotropic (p k) then 2 ^ (n - 1) else 0)) :=
       Finset.sum_add_distrib
     _ = 2 ^ n * zeroModeCount p + 2 ^ (n - 1) * isotropicModeCount p := by
       rw [sum_if_scale_card_filter, sum_if_scale_card_filter]
@@ -91,10 +94,13 @@ theorem sum_modeNullity_eq_corrected_formula {α : Type*} [Fintype α]
 /-- The corrected finite-mode formula for the actual paravector left-multiplication
 kernels. -/
 theorem sum_paravectorKernel_finrank_eq_corrected_formula
-    {α : Type*} [Fintype α] {n : ℕ} (p : α → Paravector ℂ n) :
+    {α : Type*} [Fintype α] {n : ℕ} (p : α → Paravector ℂ n)
+    [DecidablePred (fun k : α => Paravector.isZero (p k))]
+    [DecidablePred (fun k : α => Paravector.isNonzeroIsotropic (p k))] :
     (∑ k : α,
       Module.finrank ℂ (LinearMap.ker (paravectorLeftMul (p k)))) =
       2 ^ n * zeroModeCount p + 2 ^ (n - 1) * isotropicModeCount p := by
+  classical
   apply sum_modeNullity_eq_corrected_formula (p := p)
     (modeNullity := fun k =>
       Module.finrank ℂ (LinearMap.ker (paravectorLeftMul (p k))))

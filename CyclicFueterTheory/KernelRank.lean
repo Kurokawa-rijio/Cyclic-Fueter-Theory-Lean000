@@ -37,8 +37,11 @@ theorem twice_finrank_ker_of_square_zero_and_anticommutator
     (hAB : A.comp B + B.comp A = LinearMap.id) :
     2 * Module.finrank K (LinearMap.ker A) = Module.finrank K V := by
   have hKerRange := ker_eq_range_of_square_zero_and_anticommutator A B hA hAB
+  have hDim : Module.finrank K (LinearMap.ker A) =
+      Module.finrank K (LinearMap.range A) :=
+    congrArg (fun U : Submodule K V => Module.finrank K U) hKerRange
   have hRankNullity := LinearMap.finrank_range_add_finrank_ker A
-  rw [hKerRange] at hRankNullity
+  rw [← hDim] at hRankNullity
   omega
 
 /-- Complementary operators whose kernels have equal dimension split the

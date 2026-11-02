@@ -3,20 +3,18 @@
 このフォルダーが Lean プロジェクトのルートです。`lakefile.lean` と
 `lean-toolchain` がこの階層にあることを確認してください。
 
-## 依存関係の固定（任意）
+## 依存関係とローカルビルド
 
 Lean 4 と Lake がすでに使える場合は、PowerShell からプロジェクトのルートへ
-移動して次を実行すると、依存関係を固定する `lake-manifest.json` ができます。
+移動し、必要なら次を実行して依存関係を再解決できます。現在のプロジェクトには
+依存バージョンを固定する `lake-manifest.json` を含めています。
 
 ```powershell
 cd "C:\Users\ryoji\Documents\Codex\2026-10-25\t\work\CyclicFueterTheory_Lean"
 lake update
 ```
 
-生成したファイルも Git に追加すると、依存バージョンを固定できます。
-Lean/Lake をまだ用意していない場合は、この手順を飛ばして先に push できます。
-GitHub Actions が初回実行時に依存関係を解決します。ローカルでビルド確認を
-する場合は、依存関係を固定した後に続けて次を実行します。
+Mathlib キャッシュを取得してビルドするには、プロジェクトルートで次を実行します。
 
 ```powershell
 lake exe cache get
@@ -48,10 +46,10 @@ git push -u origin main
 
 ## 現在の検証状況
 
-この作業環境には Lean/Lake がないため、Lean ファイルはまだコンパイルされて
-いません。CI が失敗した場合は GitHub Actions の最初の Lean エラーから修正し、
-再 push してください。現時点では、コンパイルが通った証明として引用・公開しないで
-ください。
+このプロジェクトは Lean 4.35.0 でローカルビルド済みです。2026-11-02 の確認で
+ルートの `CyclicFueterTheory` を含む `lake build` が成功しました。GitHub に push
+した後は Actions の結果も確認してください。失敗した場合はログの最初の Lean
+エラーから修正します。
 
 元資料の PDF はこのプロジェクトには含めていません。Lean ソースの依存先は
 `lakefile.lean` に記載した Mathlib です。

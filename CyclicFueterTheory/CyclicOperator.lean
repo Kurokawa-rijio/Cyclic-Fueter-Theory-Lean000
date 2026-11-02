@@ -28,7 +28,14 @@ def cyclicOperator {R : Type*} [CommRing R] (n N : ℕ)
     have hterm (c : Fin N) :
         a (r + c) * (t • x c) =
           algebraMap R (Clifford R n) t * (a (r + c) * x c) := by
-      rw [Algebra.smul_def, mul_assoc, ← Algebra.commutes, ← mul_assoc]
+      calc
+        a (r + c) * (t • x c) =
+            (a (r + c) * algebraMap R (Clifford R n) t) * x c := by
+          rw [Algebra.smul_def, ← mul_assoc]
+        _ = (algebraMap R (Clifford R n) t * a (r + c)) * x c := by
+          rw [(Algebra.commutes t (a (r + c))).symm]
+        _ = algebraMap R (Clifford R n) t * (a (r + c) * x c) := by
+          rw [mul_assoc]
     calc
       (∑ c : Fin N, a (r + c) * (t • x c)) =
           ∑ c : Fin N, algebraMap R (Clifford R n) t * (a (r + c) * x c) := by
