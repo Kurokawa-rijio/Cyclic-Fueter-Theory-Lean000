@@ -11,3 +11,9 @@
 *.exe
 Thumbs.db
 .DS_Store
+__pycache__/
+*.pyc
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.toc

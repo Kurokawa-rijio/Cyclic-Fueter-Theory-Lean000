@@ -1,0 +1,630 @@
+\documentclass[11pt]{amsart}
+\usepackage{mathpazo}
+\usepackage[no-math]{fontspec}
+\setmainfont{TeX Gyre Pagella}
+\usepackage{amssymb,amsmath,mathtools}
+\usepackage{booktabs,longtable,array,enumitem}
+\usepackage[margin=2.6cm]{geometry}
+\usepackage[hidelinks]{hyperref}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{observation}[theorem]{Observation}
+\newtheorem{conjecture}[theorem]{Conjecture}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Cl}{\mathrm{Cl}}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\ind}{\operatorname{ind}}
+\newcommand{\status}[1]{\textsc{[#1]}}
+\newcommand{\leanus}{\textunderscore\allowbreak}
+\newcommand{\lean}[1]{{\ttfamily\let\_\leanus #1}}
+\emergencystretch=3em
+
+\title[Paravector operators and the Laguerre--Clifford tower]{Cyclic paravector operators and the Laguerre--Clifford tower:\\
+closed computations toward a matrix formulation of the Riemann hypothesis\\
+(Layers I and II), with Lean~4 verification}
+\author{Ryojiro Kurokawa}
+\address{Department of Electrical Engineering, Tokyo University of Science, Chiba, Japan}
+\date{November 2026. Computation report, version 1.0.}
+
+\begin{document}
+\sloppy
+
+\begin{abstract}
+This report collects the computations that have been closed in a programme
+whose aim is to restate the Riemann hypothesis (RH) as a statement about
+matrices and to examine whether the paravector nullity theory of cyclic
+Clifford operators can serve as a tool for it. Layer~I is algebraic: it
+upgrades the nullity formula for cyclic paravector operators to a
+quantitative theory (exact singular values in every signature, two-sided
+near-kernel bounds, positivity of block circulant and block Toeplitz
+matrices through the Lorentz cone, a twisted-circulant zero count, and a
+chiral (Dirac-type) structure of persymmetric operators). Layer~II is
+analytic: it writes the Laguerre forms of Riemann's $\Xi$ as norms of
+paravectors in the split Clifford algebras $\Cl(n,n)$, proves single-point
+matrix criteria equivalent to RH, a depth bound $O(\log\gamma)$ for the level
+at which an isolated off-line zero is detected, and an index theorem: the
+number of negative eigenvalues of a single-point Hankel matrix counts the
+off-line zeros. \emph{Nothing here proves RH}; every equivalence moves the
+difficulty rather than removing it. Each item carries a status tag, and the
+finite algebraic cores are formalised in Lean~4 in the repository
+\texttt{Cyclic-Fueter-Theory-Lean000}. Novelty is not claimed: several items
+are classical and are cited as such, and for others the literature check is
+recorded as preliminary.
+\end{abstract}
+
+\maketitle
+\tableofcontents
+
+%======================================================================
+\section{Status conventions and scope}
+
+Every statement carries one tag.
+\begin{description}[leftmargin=2.8cm,style=nextline]
+\item[\status{Closed}] proved in this report, with every step written out.
+\item[\status{Closed-cond}] proved here assuming the cited classical results listed in \S\ref{sec:cited}; no other assumption.
+\item[\status{Classical}] a known theorem, stated for completeness with a reference; our proof, if given, is only a convenience.
+\item[\status{Numerical}] observed in exact or high-precision computation; not a theorem.
+\item[\status{Conjecture}] a precise statement that is supported numerically but not proved.
+\end{description}
+A Lean tag \lean{[Lean: name]} means the displayed core is a theorem of the
+Lean project, built by the GitHub Actions workflow of the repository with no
+\texttt{sorry}, \texttt{admit} or project axiom. ``Lean core'' means that the
+algebraic heart is formalised and the remaining steps (spectral multiplicities,
+analytic limits, citations) are not. Numerical checks refer to the Python
+scripts in \texttt{verification/} (NumPy, exact rationals via
+\texttt{fractions}, and 110-digit decimal arithmetic).
+
+\subsection*{What the report does and does not do}
+It records closed computations. It does not prove RH, does not claim that the
+tools below reach RH, and assesses novelty only provisionally
+(\S\ref{sec:literature}).
+
+%======================================================================
+\section{Conventions}
+
+\subsection{Clifford algebras and paravectors}
+$\Cl(p,q)$ is the real Clifford algebra with generators $e_1,\dots,e_n$,
+$n=p+q$, $e_a^2=s_a$ with $s_a=+1$ for $a\le p$ and $s_a=-1$ for $a>p$, and
+$e_ae_b=-e_be_a$ for $a\ne b$. A \emph{paravector} is
+$p=p_0+\sum_a p_ae_a$ with real or complex coefficients. Its Clifford norm and
+Hermitian norm are
+\[
+N(p)=p\bar p=p_0^2-\sum_a s_a p_a^2,\qquad \|p\|^2=\sum_{j=0}^n |p_j|^2 .
+\]
+$L(p)$ denotes left multiplication on the $2^n$-dimensional algebra, written in
+the blade basis. In the Lean project, Mathlib's convention $\iota(v)^2=Q(v)$ is
+used; $\Cl(n,0)$ corresponds to $Q(v)=\sum v_i^2$ and the manuscript convention
+$\Cl(0,n)$ of the existing core to $Q(v)=-\sum v_i^2$.
+
+\subsection{Riemann's $\Xi$ and the Laguerre forms}
+$\Xi(t)=\xi(\tfrac12+it)$ is real, even and entire of order one. Its zeros are
+written $t_\rho$ (so $\rho=\tfrac12+it_\rho$); RH says that all $t_\rho$ are real.
+For a real function $f$ and a real point $x$ we use the Taylor coefficients
+$c_k=f^{(k)}(x)/k!$ and the Laguerre forms
+\begin{equation}\label{eq:Ln}
+L_n[f](x)=\sum_{k=0}^{2n}(-1)^{n+k}c_kc_{2n-k}
+=\sum_{k=0}^{2n}\frac{(-1)^{n+k}}{k!(2n-k)!}f^{(k)}(x)f^{(2n-k)}(x).
+\end{equation}
+For a real point $x$ that is not a zero, the \emph{atoms seen from $x$} are
+$w_\rho(x)=(x-t_\rho)^{-2}$ (one for each zero, with multiplicity), with power
+sums $p_k(x)=\sum_\rho w_\rho(x)^k$ and elementary symmetric functions
+$e_n(x)=e_n(\{w_\rho(x)\})$.
+
+%======================================================================
+\section{Cited classical results}\label{sec:cited}
+
+\begin{enumerate}[label=(C\arabic*)]
+\item\label{C:product} $\Xi(t)=\Xi(0)\prod_{\rho}(1-t^2/t_\rho^2)$ over the zeros
+with $\operatorname{Re}t_\rho>0$ (or one of each pair $\pm t_\rho$), and
+$\sum_\rho|t_\rho|^{-2}<\infty$ \cite{Titchmarsh}.
+\item\label{C:14} Every zero has $|\operatorname{Re}t_\rho|>14$ \cite{Titchmarsh}.
+\item\label{C:NT} $N(T+1)-N(T)=O(\log T)$ (Riemann--von Mangoldt) \cite{Titchmarsh}.
+\item\label{C:Ham} Hamburger's theorem: a real sequence whose Hankel matrices are all
+positive semidefinite is a moment sequence of a positive measure on $\R$;
+the measure is unique when the moments grow at most geometrically.
+\item\label{C:Edrei} Edrei's theorem (Aissen--Schoenberg--Whitney--Edrei): $(1,c_1,c_2,\dots)$
+is totally nonnegative iff $\sum c_kz^k=e^{\gamma z}\prod(1+\beta_iz)/\prod(1-\alpha_iz)$
+with $\alpha_i,\beta_i,\gamma\ge0$, $\sum\alpha_i+\sum\beta_i<\infty$ \cite{ASW,Edrei,TPToeplitz}.
+\item\label{C:Li} Li's criterion: RH iff $\lambda_n=\sum_\rho[1-(1-1/\rho)^n]\ge0$ for
+all $n\ge1$ \cite{Li,BL}.
+\item\label{C:Darroch} Darroch's theorem: the mode $M$ of a sum of independent
+Bernoulli variables with mean $\mu$ satisfies $M\le\lfloor\mu\rfloor+1$ \cite{Darroch,PoissonBinomial}.
+\item\label{C:Newton} Newton's inequalities $e_n^2\ge(1+\frac1n)(1+\frac1{N-n})e_{n-1}e_{n+1}$
+for $N$ real numbers \cite{HLP}.
+\item\label{C:Weyl} Weyl's inequality $|\lambda_k(A+E)-\lambda_k(A)|\le\|E\|$ for Hermitian $A,E$, and Cauchy interlacing.
+\item\label{C:Jensen} Jensen's identity $|f(x+iy)|^2=\sum_nL_n[f](x)y^{2n}$ and the
+criterion ``RH iff $L_n[\Xi](x)\ge0$ for all $n$ and real $x$''
+(Jensen; Patrick; Csordas--Varga) \cite{CsordasVarga,Cardon}.
+\end{enumerate}
+
+%======================================================================
+\section{Layer I: a quantitative paravector nullity theory}
+
+\subsection{The nullity formula (I.1)}
+The kernel formula for cyclic paravector operators,
+$\dim\ker=2^{n}N_0+2^{n-1}N_{\mathrm{iso}}$ (zero modes and nonzero isotropic
+modes), is the starting point. It is formalised in the existing core of the
+repository for complex coefficients and for complexified real data
+\lean{[Lean: sum\_paravectorKernel\_finrank\_eq\_corrected\_formula]}.
+
+\subsection{Spectrum in $\Cl(n,0)$ (I.2)}
+\begin{lemma}\status{Closed}\label{lem:I2}
+In $\Cl(n,0)$, $L(p)$ is symmetric with eigenvalues $p_0\pm|\vec p|$, each of
+multiplicity $2^{n-1}$.
+\end{lemma}
+\begin{proof}
+$E_a=L(e_a)$ permutes the blade basis up to sign, so it is orthogonal; $E_a^2=I$
+gives $E_a^{\mathsf T}=E_a$. For $a\neq b$ the $E_a$ anticommute, hence
+$(L(p)-p_0)^2=(\sum p_aE_a)^2=|\vec p|^2 I$. Each $E_a$ maps the blade $e_A$ to
+$\pm e_{A\triangle\{a\}}\neq e_A$, so $\tr E_a=0$ and the eigenvalues
+$p_0\pm|\vec p|$ occur equally often.
+\end{proof}
+\noindent Lean core: in the Clifford algebra of \emph{any} quadratic form,
+$(L_p-r)^2=Q(v)$ for $p=r+\iota v$, every eigenvalue satisfies $(\mu-r)^2=Q(v)$,
+in $\Cl(n,0)$ every eigenvalue is $r\pm|v|$, and $r\ge|v|$ forces all eigenvalues
+to be non-negative
+\lean{[Lean: paravectorMul\_quadratic\_relation, paravectorMul\_eigenvalue,
+euclidean\_paravector\_eigenvalue, euclidean\_paravector\_eigenvalue\_nonneg]}.
+Multiplicities are not formalised.
+
+\subsection{Singular values in every signature (I.3, I.4)}
+\begin{theorem}\status{Closed}\label{thm:sv}
+For a complex paravector $p$ in $\Cl(p,q)$ the singular values of $L(p)$ are
+\[
+\sigma_\pm^2=\|p\|^2\pm\sqrt{\|p\|^4-|N(p)|^2},
+\]
+each with multiplicity $2^{n-1}$. In particular $\sigma_+\sigma_-=|N(p)|$ and
+$\sigma_+^2+\sigma_-^2=2\|p\|^2$.
+\end{theorem}
+\begin{proof}
+(i) $E_a^{\mathsf T}=s_aE_a$ as in Lemma~\ref{lem:I2}. (ii) With
+$\alpha_a=s_a\bar p_a$, $\beta_a=p_a$ one has $L(p)^*=L(\bar p_0+\alpha)$, so
+$L(p)^*L(p)=L((\bar p_0+\alpha)(p_0+\beta))$. Its scalar part is
+$|p_0|^2+\sum s_a\alpha_a\beta_a=\|p\|^2$, and the rest is $L(X)$ with
+$X=v+B$, $v=\bar p_0\beta+p_0\alpha$, $B=\alpha\wedge\beta$. (iii) $v$ and $B$ lie
+in the Clifford algebra of the plane $\mathrm{span}(\alpha,\beta)$; there the
+bivector anticommutes with vectors and squares to a scalar
+(Lemma~\ref{lem:two-vector}), so $X^2=v^2+B^2$ is a scalar $c$. Since $X$ is
+Hermitian and traceless, its eigenvalues are $\pm\sqrt c$ with equal
+multiplicity. (iv) $L(p)L(\bar p)=N(p)$ and the grade involution conjugates
+$L(p)$ to $L(\bar p)$, so $\lambda_+\lambda_-=|N(p)|^2$ for the two eigenvalues
+of $L(p)^*L(p)$; with $\lambda_++\lambda_-=2\|p\|^2$ this gives the formula.
+\end{proof}
+\begin{lemma}\status{Closed}\label{lem:two-vector}
+In any algebra, if $u^2=s$, $w^2=t$ and $uw+wu=p$ are scalars, then
+$e=uw-wu$ satisfies $eu+ue=0$, $ew+we=0$ and $e^2=p^2-4st$. In a Clifford
+algebra this holds for $u=\iota v$, $w=\iota v'$ with $p=\mathrm{polar}(v,v')$.
+\lean{[Lean: commutator\_of\_scalar\_relations, clifford\_commutator\_relations]}
+\end{lemma}
+\begin{proof}
+$eu+ue=u^2w-wu^2$, $ew+we=uw^2-w^2u$ and
+$e^2=(uw+wu)^2-2(uw^2u+wu^2w)$ are identities in the free ring; substitute.
+\end{proof}
+\begin{corollary}\status{Closed}\label{cor:near-kernel}
+For the persymmetric cyclic operator $H_N(a)$ with symbol $P$ and $T=N(P)$,
+\[
+\min_k\frac{|T(\omega_k)|}{\sqrt2\,\|P(\omega_k)\|}\ \le\ \sigma_{\min}(H_N(a))\ \le\ \min_k\frac{|T(\omega_k)|}{\|P(\omega_k)\|},
+\]
+and both bounds are attained.
+\end{corollary}
+\begin{proof}
+$H_N(a)$ is unitarily equivalent to $\bigoplus_kL(P(\omega_k))$ composed with a
+mode permutation, and $\sigma_-^2=|N|^2/(\|p\|^2+\sqrt{\|p\|^4-|N|^2})\in
+[|N|^2/(2\|p\|^2),|N|^2/\|p\|^2]$. Attainment: $N=0$ resp.\ $\|p\|^4=|N|^2$.
+\end{proof}
+\noindent Numerical: each step (i)--(iv) checked in 16 signatures; the bound
+ratios reach $1.000$ (\texttt{new1\_svd\_proof.py}, \texttt{test\_A.py}).
+
+\subsection{Block circulant positivity (I.5)}
+\begin{theorem}\status{Closed}
+Let $C$ be the block circulant $C_{rc}=L(a_{(c-r)\bmod N})$ in $\Cl(n,0)$ with
+$a_{-d}=a_d$ real. Then $\lambda_{\min}(C)=\min_k[P_0-|\vec P|](\omega_k)$,
+$C\succeq0$ iff every $P(\omega_k)$ lies in the closed Lorentz cone
+$\{P_0\ge|\vec P|\}$, and $\dim\ker C=2^{n-1}\#\{k:\text{boundary},P\ne0\}+2^n\#\{k:P=0\}$.
+\end{theorem}
+\begin{proof}
+The discrete Fourier transform block-diagonalises $C$ into $L(P(\omega_k))$;
+apply Lemma~\ref{lem:I2}.
+\end{proof}
+\noindent The Fourier reduction is formalised in the core for the $(r+c)$
+convention \lean{[Lean: FourierReduction]}; the cone direction of the
+eigenvalue statement is
+\lean{[Lean: euclidean\_paravector\_eigenvalue\_nonneg]}.
+
+\subsection{Block Toeplitz matrices: finite-size bounds (I.6)}
+Let $F(\theta)=L(P(\theta))$ with $P(\theta)=b_0+2\operatorname{Re}\sum_{d\ge1}b_de^{id\theta}$,
+$T_M=[\hat F_{r-c}]$, $\lambda(\theta)=P_0-|\vec P|$, $m=\min\lambda$, and
+$s_M=4\sin^2\frac{\pi}{2(M+1)}$, the least eigenvalue of
+$\mathrm{tridiag}(-1,2,-1)$.
+\begin{theorem}\status{Closed}\label{thm:toeplitz}
+Let $\theta_0$ be a minimiser and $u$ a unit minimal eigenvector of $F(\theta_0)$.
+\begin{enumerate}[label=(\alph*)]
+\item $m\le\lambda_{\min}(T_M)\le m+K s_M$ with
+$K=\sup_\theta\frac{u^*F(\theta)u-m}{2-2\cos(\theta-\theta_0)}$.
+\item If $\theta_0$ is the only minimiser, $\lambda_{\min}(T_M)\ge m+c\,s_M$ with
+$c=\inf_\theta\frac{\lambda(\theta)-m}{2-2\cos(\theta-\theta_0)}$.
+\item For even real symbols with the two minimisers $\pm\theta_0$,
+$\lambda_{\min}(T_M)\ge m+c_2\mu_M$ with $c_2=\inf\frac{\lambda-m}{4(\cos\theta-\cos\theta_0)^2}$
+and $\mu_M\ge s_Ms_{M+1}$.
+\item $\lambda_{\min}(T_M)$ is non-increasing in $M$.
+\item (Certificate) $\lambda_{\min}(T_M)>Ks_M$ implies $m>0$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+$x^*T_Mx=\frac1{2\pi}\int X(\theta)^*F(\theta)X(\theta)\,d\theta$ with
+$X(\theta)=\sum x_je^{ij\theta}$; this gives $\lambda_{\min}\ge m$. For (a) take
+$x_j=\sin\frac{\pi(j+1)}{M+1}e^{-ij\theta_0}u$ and use
+$u^*Fu-m\le K(2-2\cos(\theta-\theta_0))$; the quadratic form of
+$2-2\cos(\theta-\theta_0)$ is the Dirichlet Laplacian conjugated by a diagonal
+unitary. For (b) use $F-m\ge c(2-2\cos(\theta-\theta_0))I$ and the same
+comparison. For (c), $4(\cos\theta-\cos\theta_0)^2=|h(e^{i\theta})|^2$ with
+$h(z)=(z-e^{i\theta_0})(z-e^{-i\theta_0})$, so $T_M[|h|^2]=H^*H$ for the
+convolution $H=H_1H_2$ by the two linear factors, each with
+$\sigma_{\min}^2=s$. (d) is interlacing \ref{C:Weyl}; (e) follows from (a).
+\end{proof}
+\noindent Lean core: the eigen-equation of the comparison operator,
+$-\sin(j\theta)+2\sin((j+1)\theta)-\sin((j+2)\theta)=(2-2\cos\theta)\sin((j+1)\theta)$
+with the ghost values $\sin 0=\sin\pi=0$, and $2-2\cos\theta=4\sin^2(\theta/2)$
+\lean{[Lean: dirichlet\_three\_term, dirichlet\_left\_ghost, dirichlet\_right\_ghost, two\_sub\_two\_cos]}.
+Numerical: bounds hold for 9 Hermitian symbols and 4 even symbols; the ratio
+$(\lambda_{\min}-m)/s_M$ tends to $\lambda''(\theta_0)/2$ ($1.6576$ vs $1.6634$ at
+$M=320$). In case (c) the true order $M^{-2}$ is \status{Numerical} only; it is
+expected from the literature on extreme eigenvalues of Toeplitz matrices
+\cite{SerraCapizzano,BottcherGrudsky} (to be checked).
+
+\subsection{Twisted circulants and a zero count (I.7)}
+\begin{theorem}\status{Closed}
+Let $S_\varphi$ be the twisted shift ($S_\varphi^N=e^{i\varphi}$) and
+$C_\varphi=\sum_dS_\varphi^d\otimes L(a_d)$ in $\Cl(p,q)$, complex coefficients.
+\begin{enumerate}[label=(\alph*)]
+\item $C_\varphi\cong\bigoplus_kL(P(z_k))$ unitarily, $z_k=e^{i(\varphi+2\pi k)/N}$.
+\item The singular values are $\sigma_\pm(P(z_k))$, and
+$\dim\ker C_\varphi=\sum_k\kappa(P(z_k))$ with $\kappa(p)=2^n$ if $p=0$,
+$2^{n-1}$ if $p\neq0=N(p)$, and $0$ otherwise.
+\item As $\varphi$ runs over $[0,2\pi)$,
+$\sum_\varphi\dim\ker C_\varphi/2^{n-1}=\#\{z\in S^1:T(z)=0\ne P(z)\}+2\#\{z\in S^1:P(z)=0\}$;
+zeros of $T=N(P)$ off the unit circle never produce a kernel, and the count does not depend on $N$.
+\item $\frac{|T(z_k)|}{\sqrt2\|P(z_k)\|}\le\sigma_-\le\frac{|T(z_k)|}{\|P(z_k)\|}$ mode by mode.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+$S_\varphi$ is unitary with eigenvectors $(z_k^j)_j$; (b) follows from
+Theorem~\ref{thm:sv}; for (c), $(\varphi,k)\mapsto z_k$ is a bijection
+$[0,2\pi)\times\mathbb Z_N\to S^1$; (d) as in Corollary~\ref{cor:near-kernel}.
+\end{proof}
+\noindent Numerical: $\Cl(0,3)$ example with a common zero and an isotropic zero (count $3$), $\Cl(1,1)$ example (count $4$ for $N=5,7,11,13$).
+
+\subsection{Perturbation (I.8)}
+\status{Closed} For symmetric block circulants,
+$|\Delta\lambda_{\min}|\le\max_k(|\Delta P_0|+|\Delta\vec P|)(\omega_k)\le\sum_d(|\Delta a_{d,0}|+|\Delta\vec a_d|)$,
+by Weyl's inequality \ref{C:Weyl} mode by mode; the first bound is attained.
+
+\subsection{Persymmetric operators: full spectrum and chiral structure (I.9)}
+\begin{theorem}\status{Closed}\label{thm:persym}
+Let $H_{rc}=L(a_{(r+c)\bmod N})$ in $\Cl(n,0)$ with real $a_d$, and $P_k=\sum_da_d\omega^{kd}$.
+\begin{enumerate}[label=(\alph*)]
+\item $H(f_k\otimes u)=f_{-k}\otimes L(P_k)u$. On a pair $\{k,-k\}$, $H$ is the block
+$\begin{psmallmatrix}0&L(P_k)^*\\L(P_k)&0\end{psmallmatrix}$, with eigenvalues $\pm\sigma_\pm(P_k)$.
+\item On a self-conjugate mode ($k=0$, and $k=N/2$ for even $N$) the eigenvalues are $P_0\pm|\vec P|$.
+\item The signature of $H$ is $\sum_{z=\pm1}2^{n-1}[\operatorname{sgn}(P_0+|\vec P|)+\operatorname{sgn}(P_0-|\vec P|)](z)$.
+\item For $N\ge3$, $H\succeq0$ iff $a_d=\alpha+\beta(-1)^d$ and $P(\pm1)$ lie in the closed future cone.
+\item With $\Gamma=\sum_{0<k<N/2}(\Pi_k-\Pi_{-k})\otimes I$: $\Gamma H+H\Gamma=0$,
+$\Gamma^2=1-\Pi_{\mathrm{sc}}$, and $H^2=\bigoplus L(P_k)^*L(P_k)$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+(a) $\sum_cL(a_{r+c})\omega^{kc}=\omega^{-kr}L(P_k)$; $H$ is real symmetric and
+$L(P_{-k})=L(\bar P_k)=L(P_k)^*$. (b) Lemma~\ref{lem:I2}. (c)--(d) Pairs contribute
+equally many positive and negative eigenvalues. (e) $H$ maps $V_k$ to $V_{-k}$.
+\end{proof}
+\noindent Lean core: the paired block squares to $\mathrm{diag}(BA,AB)$,
+anticommutes with $\Gamma=\mathrm{diag}(1,-1)$, $\Gamma^2=1$, and
+$Hv=\mu v\Rightarrow H\Gamma v=-\mu\Gamma v$
+\lean{[Lean: chiralBlock\_sq, chiralGrading\_anticomm, chiralGrading\_sq, chiral\_eigen\_reflect]}.
+Numerical: full spectra for $n\le4$, $N\le9$; none of 720 random $N\ge3$ examples is positive semidefinite.
+
+\begin{remark}
+Theorem~\ref{thm:sv} is the spectrum of $H^2$: the singular-value formula is the
+spectrum of the square of a Dirac-type operator, and the signature of $H$ is
+carried by the unpaired (boundary) modes $z=\pm1$ only. Hankel-type cyclic
+structure is therefore nearly incompatible with positivity; positivity lives
+in the circulant and Toeplitz forms (I.5, I.6).
+\end{remark}
+
+\subsection{Null paravectors in $\Cl(n,n)$ (I.10)}
+\status{Closed} Every nonzero real paravector $P\in\Cl(n,n)$ with $N(P)=0$ has
+$\operatorname{rank}L(P)=2^{2n-1}$. Proof: $L(P)L(\bar P)=0$ and
+$L(P)+L(\bar P)=2p_0$; the grade involution gives equal ranks, hence half rank
+when $p_0\ne0$; when $p_0=0$, $P^2=0$ and some $u$ has $uP+Pu=1$, and the
+abstract half-dimension lemma applies
+\lean{[Lean: twice\_finrank\_ker\_of\_square\_zero\_and\_anticommutator]}.
+
+%======================================================================
+\section{Layer II: the Laguerre--Clifford tower and single-point criteria}
+
+\subsection{Jensen identity and the Clifford embedding (II.2, II.3)}
+\begin{theorem}\status{Classical / Closed}\label{thm:jensen}
+(II.2) $|f(x+iy)|^2=\sum_nL_n[f](x)y^{2n}$ for real entire $f$ \ref{C:Jensen}.
+(II.3) $L_n=c_n^2+\sum_{j<n}(-1)^{n+j}\big[\tfrac12(c_j+c_{2n-j})^2-\tfrac12(c_j-c_{2n-j})^2\big]$,
+the norm form of signature $(n+1,n)$; hence $L_n=N(P_n)$ for a paravector
+$P_n\in\Cl(n,n)\cong M_{2^n}(\R)$, and $L(P_n)L(\bar P_n)=L_n\cdot I$.
+\end{theorem}
+\begin{proof}
+The Cauchy coefficient of $y^m$ in $\sum c_j(iy)^j\sum c_k(-iy)^k$ is
+$i^m\sum_k(-1)^kc_kc_{m-k}$; it vanishes for odd $m$ by the reflection
+$k\mapsto m-k$, and for $m=2n$ equals $L_n$. For II.3 split the sum at its
+middle term and pair $j$ with $2n-j$; $2uv=\frac12[(u+v)^2-(u-v)^2]$.
+\end{proof}
+\noindent Lean: \lean{[Lean: alternating\_cauchy\_odd, laguerreForm\_eq\_even\_cauchy,
+I\_pow\_mul\_neg\_I\_pow, I\_pow\_two\_mul, laguerreForm\_signature]} (the Cauchy-product
+step itself is standard and not formalised). The matrix identity
+$L(P_n)L(\bar P_n)=L_n I$ is checked exactly for $n\le3$ (\texttt{stage2\_exact.py}).
+
+\subsection{RH and the tower (II.4--II.7, II.9)}
+\begin{theorem}\label{thm:tower}
+\begin{enumerate}[label=(\alph*)]
+\item (II.4) \status{Classical} RH iff $N(P_n(x))=L_n[\Xi](x)\ge0$ for all $n$ and real $x$.
+\item (II.5) \status{Closed-cond} If $\Xi(\gamma-i\delta)=0$ with $\delta\ne0$, some $L_n[\Xi](\gamma)<0$ with $n\ge1$.
+\item (II.6) \status{Closed} $L_n[f]''+(2n+1)(2n+2)L_{n+1}[f]=4L_n[f']$; and
+$N(P_2[f])=\frac13N(P_1[f'])-\frac1{12}(f''^2-ff'''')$; and
+$L_1^2-2L_0L_2=-\frac{f^4}{6}(\log f)''''$.
+\item (II.7) \status{Closed-cond} Unconditionally,
+$L_n[\Xi](x)=\Xi(x)^2e_n(x)$ and $p_k(x)=-(\log\Xi)^{(2k)}(x)/(2k-1)!$.
+\item (II.9) \status{Closed-cond} Under RH, $L_n^2\ge(1+\frac1n)L_{n-1}L_{n+1}$ (the tower is log-concave).
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+(a) ``$\Rightarrow$'': each factor of \ref{C:product} contributes
+$|1\mp z/\gamma|^2=((x\mp\gamma)^2+y^2)/\gamma^2$, a polynomial in $y^2$ with
+non-negative coefficients. ``$\Leftarrow$'' is (b): $0=|\Xi(\gamma-i\delta)|^2=\sum L_n(\gamma)\delta^{2n}$,
+and not all terms can vanish. (c) Compare $y^{2n}$ in $\Delta|f|^2=4|f'|^2$; the
+other two are direct expansions. (d) $\Xi(x+iy)\Xi(x-iy)=\Xi(x)^2\prod_\rho(1+y^2w_\rho(x))$
+by \ref{C:product}, absolutely convergent since $\sum|w_\rho|<\infty$; take
+logarithms for $p_k$. (e) Newton \ref{C:Newton} for positive $w_\rho$, then a limit.
+\end{proof}
+\noindent Numerical (exact rationals): (c) for random polynomials up to degree 12;
+(d) for random real-rooted and complex-rooted polynomials; on $\Xi$ at
+110 digits, $|e_n-L_n/\Xi^2|_{\mathrm{rel}}\le10^{-108}$ at five points.
+
+\subsection{The second difference of an off-line pair (II.8)}
+\begin{theorem}\status{Closed}\label{thm:T28}
+If $f=((x-\gamma)^2+\delta^2)g$ with $g$ real, then with $b_n=\delta^{2n}L_n[g](\gamma)$
+(and $b_{-1}=b_{-2}=0$),
+\[
+\delta^{2n}L_n[f](\gamma)=\delta^4(b_n-2b_{n-1}+b_{n-2}).
+\]
+\end{theorem}
+\begin{proof}
+$|f(\gamma+iy)|^2=(\delta^2-y^2)^2|g(\gamma+iy)|^2$; compare coefficients of $Y=y^2$.
+\end{proof}
+\noindent Lean: the coefficient step for $(\delta^2-Y)^2G(Y)$
+\lean{[Lean: coeff\_offline\_factor, coeff\_offline\_factor\_zero]}. Exact check for 20 random $g$.
+
+\subsection{Single-point matrix criteria (II.1, II.11)}
+\begin{theorem}\label{thm:single}
+Fix a real $x$ with $\Xi(x)\neq0$. The following are equivalent.
+\begin{enumerate}[label=(\alph*)]
+\item RH.
+\item \status{Closed-cond} The Hankel matrices $(p_{j+k+1}(x))_{j,k<N}$ are positive semidefinite for all $N$.
+\item \status{Closed-cond} The Toeplitz matrix $(L_{j-k}[\Xi](x))_{j,k}$ is totally nonnegative.
+\end{enumerate}
+For $x=0$, (b) is (II.1): with $\mu_n=\sum_{\gamma>0}\gamma^{-2(n+1)}$, RH iff $(\mu_{j+k})\succeq0$ for all $N$.
+\end{theorem}
+\begin{proof}
+(a)$\Rightarrow$(b): $p_{j+k+1}=\sum w\,w^{j+k}$ with $w>0$.
+(b)$\Rightarrow$(a): $|w_\rho|\le R$ and $\sum|w_\rho|<\infty$; by \ref{C:Ham} there is a
+unique positive measure $\nu$ on $[-R,R]$ with these moments, and
+$\int\frac{d\nu(s)}{z-s}=\sum_\rho\frac{w_\rho}{z-w_\rho}$ off $[-R,R]$. The right side
+has poles at the $w_\rho$ with residues (multiplicity)$\cdot w_\rho\neq0$; analyticity
+of the left side off the real axis forces all $w_\rho$ real, and positivity of $\nu$
+forces the total mass at each point to be positive, so $w_\rho>0$ and $t_\rho$ is real.
+(A zero with $\operatorname{Re}t=x$ gives the negative atom $-1/\delta^2$ and is excluded too.)
+For $x=0$ use \ref{C:14}.
+(a)$\Rightarrow$(c): each factor $1+wY$ gives a totally nonnegative bidiagonal
+Toeplitz matrix; products preserve total nonnegativity (Cauchy--Binet).
+(c)$\Rightarrow$(a): Edrei \ref{C:Edrei}.
+\end{proof}
+\begin{remark}\status{Closed}
+The single-point tower condition $L_n(x)\ge0$ for all $n$ is \emph{only necessary}:
+in an exact model with real zeros $-6,-3,-1,2,4,7$ and the pair $\frac52\pm\frac i3$,
+all $L_n(x_0)\ge0$ at $x_0\in\{-\frac92,0,\frac12\}$, while (b) fails at $N=7,5,4$ and
+(c) fails at minors of size $\ge16$, $12$ (\texttt{phase2\_II11*.py}).
+\end{remark}
+\noindent Numerical: $\mu_0=0.0231049931154\ldots$; Hankel pivots at $x=0$ positive for $N\le8$; Hankel pivots at $x\in\{0,5,17.5,35,62.3\}$ positive for $N\le4$.
+
+\subsection{The Li--Schoenberg Toeplitz form (II.10)}
+\begin{theorem}\status{Closed-cond}
+RH iff $(e^{-t\lambda_{|j-k|}})_{j,k}\succeq0$ for all $t>0$ and all sizes.
+\end{theorem}
+\begin{proof}
+Under RH each conjugate pair contributes
+$e^{-2t(1-\cos m\theta)}=e^{-2t}\sum_kI_k(2t)e^{ikm\theta}$ with $I_k>0$, a positive
+measure on the circle; Schur products and limits preserve positivity.
+Conversely the $2\times2$ minors already give $\lambda_n\ge0$; apply \ref{C:Li}.
+\end{proof}
+\begin{remark}
+The logical strength is exhausted at size $2$ (Li's criterion). The value of the
+form is structural: it presents RH as a Toeplitz matrix whose symbol is a positive
+measure, the setting of I.5--I.6.
+\end{remark}
+\noindent Numerical: $\lambda_n=\sum_jj\binom nja_j$ from the Taylor coefficients of
+$\log\xi$ at $1$; $\lambda_1$ agrees with $1+\gamma/2-\frac12\log4\pi$ to 28 digits,
+$\lambda_2=0.0923457352$; $\lambda_n>0$ for $n\le80$; all $81\times81$ matrices for
+$t\in\{0.01,0.1,1,10\}$ positive definite in 110-digit elimination.
+
+\subsection{The depth theorem (II.12)}
+\begin{theorem}\status{Closed-cond}\label{thm:depth}
+Let $\rho_0=\frac12+\delta+i\gamma_0$ ($\delta>0$) be a zero, and suppose the other
+off-line zeros are finitely many and height-separated:
+$|\gamma'-\gamma_0|\ge\sqrt3\,\delta'$. Let $q$ be the number of quadratic factors
+(the mirror pair at $-\gamma_0$ and the other off-line pairs) and
+$m=\sum_k\delta^2/((\gamma_0-t_k)^2+\delta^2)$ over the real zeros. Then
+$L_{n^*}[\Xi](\gamma_0)<0$ for some $n^*\le\lfloor m\rfloor+3+2q$; for a single
+quadruple $n^*\le\lfloor m\rfloor+5$. Moreover $m=O(\log\gamma_0)$, so $n^*=O(\log\gamma_0)$.
+\end{theorem}
+\begin{proof}
+Write $\Xi=((x-\gamma_0)^2+\delta^2)G$ and $b_n=\delta^{2n}L_n[G](\gamma_0)$.
+\emph{(A)} The real-zero part of $|G(\gamma_0+iy)|^2$ is a product of factors
+$1+\delta^2w_kY$; each other pair contributes
+$|(d+iy)^2+\delta'^2|^2=(d^2+\delta'^2)^2+2(d^2-\delta'^2)y^2+y^4$, whose coefficients are
+positive and log-concave iff $d^2\ge3\delta'^2$. Convolutions of positive log-concave
+sequences are log-concave ($2\times2$ Cauchy--Binet), and limits preserve this; so
+$b$ is positive and log-concave.
+\emph{(B)} By Theorem~\ref{thm:T28}, $\delta^{2n}L_n(\gamma_0)=\delta^4\Delta^2b_n$, and
+$\Delta^2b_{M+1}<0$ at the last maximum $M$ of $b$.
+\emph{(C)} Convolution with a positive sequence of length three moves the start of
+strict decrease by at most two places, so $M\le M_a+2q$ where $M_a$ is the last mode
+of the real-zero part.
+\emph{(D)} By \ref{C:Darroch} applied to finite truncations and a limit,
+$M_a\le\lfloor m\rfloor+2$ (strict decrease of ratios by Newton's inequalities
+\ref{C:Newton} excludes flat tops).
+\emph{(E)} Splitting the real zeros into unit intervals around $\gamma_0$ and using
+\ref{C:NT}, $m\le C\log\gamma_0+C'$ uniformly in $\delta<\frac12$.
+\end{proof}
+\noindent Lean: steps (A) expansion and criterion, (B) last-mode lemma, (C) shift lemma
+\lean{[Lean: offline\_factor\_expansion, offline\_factor\_logconcave\_iff,
+second\_difference\_neg\_at\_last\_mode, convolution\_strictly\_decreasing]}.
+Exact check of the whole chain on 40 polynomial models (finite form
+$n^*\le\lfloor m\rfloor+2+2q$). With the actual zero configuration below height $100$,
+$m<1$ for $\gamma_0\le80$, $\delta<\frac12$, so $n^*\le5$; the average-density heuristic
+$m\approx\frac\delta2\log\frac{\gamma_0}{2\pi}$ gives $n^*\le12$ at $T=10^{13}$.
+
+\subsection{The index theorem (II.15)}
+\begin{theorem}\status{Closed-cond}\label{thm:index}
+For real $x$ with $\Xi(x)\ne0$ let $n_-(N)$ be the number of negative eigenvalues of
+$H_N(x)=(p_{j+k+1}(x))_{j,k<N}$. Then $n_-(N)$ is non-decreasing and
+\[
+\ind(x):=\lim_{N\to\infty}n_-(N)=\#\{\text{distinct non-real atom pairs}\}+\#\{\text{distinct negative atoms}\}.
+\]
+For generic $x$ this is $2\times$(number of off-line quadruples); at $x=0$ it is the
+number of quadruples (the atoms of $t$ and $-t$ coincide). In particular RH iff $\ind(x)=0$.
+\end{theorem}
+\begin{proof}
+$H_N=\sum_\rho w_\rho v_\rho v_\rho^{\mathsf T}$, $v_\rho=(w_\rho^j)_{j<N}$, absolutely
+convergent. Positive atoms give a positive semidefinite part; a conjugate pair $(c,\bar c)$
+gives $2\operatorname{Re}(cvv^{\mathsf T})$, whose $2\times2$ form in the basis
+$(\operatorname{Re}v,\operatorname{Im}v)$ has negative determinant, hence one positive and
+one negative eigenvalue; a negative real atom gives one negative direction.
+Monotonicity is interlacing; the upper bound is subadditivity of $n_-$. For the lower bound,
+for finitely many chosen pairs take polynomials $q(w)=w^Mr(w)$ with $r$ vanishing on the
+finitely many atoms of modulus $\ge\varepsilon$ outside the chosen ones and prescribed at the
+chosen ones; the remaining atoms contribute $O((\varepsilon/|c|)^{2M})$, so a negative-definite
+subspace of the required dimension exists for large $M$.
+\end{proof}
+\noindent Lean core: the conjugate-pair block $\begin{psmallmatrix}a&-b\\-b&-a\end{psmallmatrix}$ is
+traceless with determinant $-(a^2+b^2)<0$
+\lean{[Lean: conjPairBlock\_det, conjPairBlock\_det\_neg, conjPairBlock\_trace]}.
+Numerical: exact inertia (characteristic polynomial and Descartes' rule) in 16 general and 6 even
+models; in a realistic model replacing the zeros $49.77, 52.97$ of $\Xi$ by $\pm51.37\pm0.1i$,
+$n_-$ reaches $2$ at $x$ near $\gamma_0$, while the unmodified $\Xi$ gives $n_-=0$ everywhere.
+
+\begin{remark}
+In the language of Layer~I, on-line zeros are self-conjugate modes and off-line pairs are
+chiral pairs: RH says that the Hankel form of the atoms has no chiral pair. The finite case is
+Hermite's classical theorem on Hankel forms of power sums \cite{KreinNaimark}; the entire-function
+version belongs to the theory of kernels with finitely many negative squares
+\cite{Stewart,KaltenbackWoracek}, where the statement for $\Xi$ may already be known.
+\end{remark}
+
+%======================================================================
+\section{Observations and conjectures}
+
+\begin{observation}\status{Numerical}(II.16, beam width)
+In the realistic model above ($\delta=0.1$), the tower detects the hidden zero only for
+$|x-\gamma_0|\le0.05$, while the Hankel index detects it at $N=1,1,2,2,3,3,5,8$ for
+$x-\gamma_0=0,0.05,0.2,0.5,1,2,3,5$.
+\end{observation}
+\begin{conjecture}\status{Conjecture}(II.13, resolution limit)
+Any criterion built from the derivatives of order at most $2n$ at one point misses off-line
+pairs with $\delta/s\gg n$, where $s$ is the local zero spacing.
+\end{conjecture}
+\begin{observation}\status{Numerical}
+On $[0,100]$ the normalised margins $\kappa_n=N(P_n)/\|P_n\|^2$ of $\Xi$ have minima
+$0.206$, $0.103$, $0.063$ for $n=1,2,3$, located in wide zero gaps; the Newton ratios of
+Theorem~\ref{thm:tower}(e) are tightest at the symmetric point $t=0$ ($1.036$, $1.034$).
+\end{observation}
+
+%======================================================================
+\section{Lean correspondence}\label{sec:lean}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{2.0cm}>{\raggedright\arraybackslash}p{7.0cm}>{\raggedright\arraybackslash}p{5.2cm}}
+\toprule
+Item & Lean declaration(s) & Module \\ \midrule
+I.1 & \lean{sum\_paravectorKernel\_finrank\_eq\_corrected\_formula} & \lean{NullityFormula} (existing core)\\
+I.2, I.3 & \lean{eigenvalue\_sq\_of\_quadratic\_relation}, \lean{paravectorMul\_quadratic\_relation}, \lean{paravectorMul\_eigenvalue}, \lean{euclidean\_paravector\_eigenvalue} & \lean{Positivity/QuadraticRelation}\\
+I.3 & \lean{commutator\_of\_scalar\_relations}, \lean{clifford\_commutator\_relations} & \lean{Positivity/TwoVectorAlgebra}\\
+I.5 & \lean{euclidean\_paravector\_eigenvalue\_nonneg}; DFT reduction & \lean{QuadraticRelation}; \lean{FourierReduction}\\
+I.6 & \lean{dirichlet\_three\_term}, \lean{dirichlet\_left\_ghost}, \lean{dirichlet\_right\_ghost}, \lean{two\_sub\_two\_cos} & \lean{Positivity/DirichletLaplacian}\\
+I.9 & \lean{chiralBlock\_sq}, \lean{chiralGrading\_anticomm}, \lean{chiralGrading\_sq}, \lean{chiral\_eigen\_reflect} & \lean{Positivity/ChiralBlock}\\
+I.10 & \lean{twice\_finrank\_ker\_of\_square\_zero\_and\_anticommutator} & \lean{KernelRank} (existing core)\\
+II.2, II.3 & \lean{alternating\_cauchy\_odd}, \lean{laguerreForm\_eq\_even\_cauchy}, \lean{laguerreForm\_signature} & \lean{Laguerre/JensenCoefficients}\\
+II.8 & \lean{coeff\_offline\_factor}, \lean{coeff\_offline\_factor\_zero} & \lean{Laguerre/SecondDifference}\\
+II.12 & \lean{offline\_factor\_logconcave\_iff}, \lean{second\_difference\_neg\_at\_last\_mode}, \lean{convolution\_strictly\_decreasing} & \lean{Laguerre/SecondDifference}\\
+II.15 & \lean{conjPairBlock\_det\_neg}, \lean{conjPairBlock\_trace} & \lean{Positivity/ChiralBlock}\\
+\bottomrule
+\end{longtable}
+\noindent Not formalised: spectral multiplicities, the adjoint identity of
+Theorem~\ref{thm:sv}, the Toeplitz integral identity, the analytic statements resting on
+\ref{C:product}--\ref{C:Jensen} (Mathlib contains the definition of RH and the zeta function,
+but not the Hadamard product of $\Xi$ or zero counting \cite{LoefflerStoll}).
+
+%======================================================================
+\section{Literature status (preliminary)}\label{sec:literature}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{7cm}}
+\toprule
+Item & Assessment & Pointers\\ \midrule
+II.2, II.4 & classical & Jensen; Patrick; Csordas--Varga \cite{CsordasVarga,Cardon}\\
+II.3 Clifford form & new framing, elementary & ---\\
+II.6, II.9 & elementary; possibly known & Dimitrov; Cardon \cite{Cardon}\\
+II.7 product form & probably known & Jensen-type product\\
+II.8 second difference & not found yet & ---\\
+II.1, II.11(b) & Hermite--Sylvester type; $\zeta$ version to be checked & \cite{KreinNaimark,Yoshida}\\
+II.11(c) & corollary of Edrei & \cite{Edrei,TPToeplitz}\\
+II.10 & elementary combination & \cite{Li,BL}\\
+II.12 depth & not found yet & Jensen--P\'olya literature to be checked \cite{GORZ}\\
+II.15 index & general theory probably known & \cite{Stewart,KaltenbackWoracek}\\
+I.6 case (c) order & expected known & \cite{SerraCapizzano,BottcherGrudsky}\\
+\bottomrule
+\end{longtable}
+
+%======================================================================
+\section{Numerical verification}
+All scripts are in \texttt{verification/} and run with Python~3 and NumPy (SciPy for I.6);
+no other package is needed. $\Xi$ is evaluated from Riemann's integral
+$\Xi(t)=2\int_0^\infty\Phi(u)\cos(tu)\,du$ by the trapezoid rule ($h=0.01$, $u\le3$) in
+110-digit decimal arithmetic; the checks $\Xi(0)=0.497120778188314\ldots$, $\xi(1)=\frac12$,
+and $|\Xi|\approx10^{-50}$ at the first 29 zeros (given to 50 digits) fix the accuracy.
+
+\begin{thebibliography}{99}
+\bibitem{ASW} M.~Aissen, I.~J.~Schoenberg, A.~Whitney, On the generating functions of totally positive sequences I, \emph{J. Analyse Math.} 2 (1952) 93--103.
+\bibitem{BL} E.~Bombieri, J.~C.~Lagarias, Complements to Li's criterion for the Riemann hypothesis, \emph{J. Number Theory} 77 (1999) 274--287.
+\bibitem{BottcherGrudsky} A.~B\"ottcher, S.~M.~Grudsky, \emph{Spectral Properties of Banded Toeplitz Matrices}, SIAM, 2005.
+\bibitem{Cardon} D.~A.~Cardon, Extended Laguerre inequalities and a criterion for real zeros, arXiv:0911.1122.
+\bibitem{CsordasVarga} G.~Csordas, R.~S.~Varga, Necessary and sufficient conditions and the Riemann hypothesis, \emph{Adv. Appl. Math.} 11 (1990) 328--357.
+\bibitem{Darroch} J.~N.~Darroch, On the distribution of the number of successes in independent trials, \emph{Ann. Math. Statist.} 35 (1964) 1317--1321.
+\bibitem{Edrei} A.~Edrei, On the generating functions of totally positive sequences II, \emph{J. Analyse Math.} 2 (1952) 104--109.
+\bibitem{GORZ} M.~Griffin, K.~Ono, L.~Rolen, D.~Zagier, Jensen polynomials for the Riemann zeta function and other sequences, \emph{Proc. Natl. Acad. Sci. USA} 116 (2019) 11103--11110.
+\bibitem{HLP} G.~H.~Hardy, J.~E.~Littlewood, G.~P\'olya, \emph{Inequalities}, Cambridge University Press, 1934.
+\bibitem{KaltenbackWoracek} M.~Kaltenb\"ack, H.~Woracek, Pontryagin spaces of entire functions I--VI, series of papers 1999--2011.
+\bibitem{KreinNaimark} M.~G.~Krein, M.~A.~Naimark, The method of symmetric and Hermitian forms in the theory of the separation of the roots of algebraic equations (1936), English transl. \emph{Linear and Multilinear Algebra} 10 (1981) 265--308.
+\bibitem{Li} X.-J.~Li, The positivity of a sequence of numbers and the Riemann hypothesis, \emph{J. Number Theory} 65 (1997) 325--333.
+\bibitem{LoefflerStoll} D.~Loeffler, M.~Stoll, Formalizing zeta and L-functions in Lean, arXiv:2503.00959.
+\bibitem{PoissonBinomial} W.~Tang, F.~Tang, The Poisson binomial distribution---old and new, arXiv:1908.10024.
+\bibitem{SerraCapizzano} S.~Serra Capizzano, On the extreme eigenvalues of Hermitian (block) Toeplitz matrices, \emph{Linear Algebra Appl.} 270 (1998) 109--129.
+\bibitem{Stewart} J.~Stewart, Functions with a finite number of negative squares, \emph{Canad. Math. Bull.} 15 (1972) 399--410.
+\bibitem{Titchmarsh} E.~C.~Titchmarsh, \emph{The Theory of the Riemann Zeta-Function}, 2nd ed., revised by D.~R.~Heath-Brown, Oxford, 1986.
+\bibitem{TPToeplitz} Totally positive Toeplitz matrices: classical and modern, arXiv:2509.25163.
+\bibitem{Yoshida} H.~Yoshida, On Hermitian forms attached to zeta functions, \emph{Adv. Stud. Pure Math.} 21 (1992) 281--325.
+\end{thebibliography}
+
+\end{document}
