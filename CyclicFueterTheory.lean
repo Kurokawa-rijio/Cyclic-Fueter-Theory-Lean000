@@ -8,4 +8,9 @@ import CyclicFueterTheory.CyclicOperator
 import CyclicFueterTheory.SymbolPolynomial
 import CyclicFueterTheory.NullityFormula
 import CyclicFueterTheory.FourierReduction
-
+import CyclicFueterTheory.Positivity.QuadraticRelation
+import CyclicFueterTheory.Positivity.TwoVectorAlgebra
+import CyclicFueterTheory.Positivity.ChiralBlock
+import CyclicFueterTheory.Positivity.DirichletLaplacian
+import CyclicFueterTheory.Laguerre.JensenCoefficients
+import CyclicFueterTheory.Laguerre.SecondDifference
