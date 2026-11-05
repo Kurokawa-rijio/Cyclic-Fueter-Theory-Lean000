@@ -23,14 +23,22 @@ section QuadraticRelation
 
 variable {K W : Type*} [Field K] [AddCommGroup W] [Module K W]
 
+/-- The shifted operator `T - h • id`. -/
+def shift (T : W →ₗ[K] W) (h : K) : W →ₗ[K] W :=
+  T - h • LinearMap.id
+
+@[simp]
+theorem shift_apply (T : W →ₗ[K] W) (h : K) (x : W) : shift T h x = T x - h • x := by
+  simp [shift]
+
 /-- Every eigenvalue of an operator with `(T - h)^2 = c` satisfies `(μ - h)^2 = c`. -/
 theorem eigenvalue_sq_of_quadratic_relation (T : W →ₗ[K] W) (h c : K)
-    (hT : ∀ x, (T - h • LinearMap.id) ((T - h • LinearMap.id) x) = c • x)
+    (hT : ∀ x, shift T h (shift T h x) = c • x)
     {μ : K} {x : W} (hx : x ≠ 0) (hμ : T x = μ • x) :
     (μ - h) ^ 2 = c := by
-  have h2 : (T - h • LinearMap.id) x = (μ - h) • x := by
-    rw [LinearMap.sub_apply, LinearMap.smul_apply, LinearMap.id_apply, hμ, sub_smul]
-  have h3 : (T - h • LinearMap.id) ((T - h • LinearMap.id) x) = (μ - h) ^ 2 • x := by
+  have h2 : shift T h x = (μ - h) • x := by
+    rw [shift_apply, hμ, sub_smul]
+  have h3 : shift T h (shift T h x) = (μ - h) ^ 2 • x := by
     rw [h2, map_smul, h2, smul_smul, sq]
   have h4 : ((μ - h) ^ 2 - c) • x = 0 := by
     rw [sub_smul, ← h3, hT, sub_self]
@@ -51,15 +59,14 @@ noncomputable def paravectorMul (r : K) (v : V) :
 
 /-- Removing the scalar part leaves multiplication by the vector part. -/
 theorem paravectorMul_sub_scalar (r : K) (v : V) (x : CliffordAlgebra Q) :
-    (paravectorMul Q r v - r • LinearMap.id) x = ι Q v * x := by
-  rw [LinearMap.sub_apply, LinearMap.smul_apply, LinearMap.id_apply]
+    shift (paravectorMul Q r v) r x = ι Q v * x := by
+  rw [shift_apply]
   simp only [paravectorMul, LinearMap.mulLeft_apply, add_mul, Algebra.smul_def]
   abel
 
 /-- I.3 (algebraic core): `(L_p - r)^2 = Q(v)` for `p = r + ι v`, in every signature. -/
 theorem paravectorMul_quadratic_relation (r : K) (v : V) (x : CliffordAlgebra Q) :
-    (paravectorMul Q r v - r • LinearMap.id)
-        ((paravectorMul Q r v - r • LinearMap.id) x) = Q v • x := by
+    shift (paravectorMul Q r v) r (shift (paravectorMul Q r v) r x) = Q v • x := by
   rw [paravectorMul_sub_scalar, paravectorMul_sub_scalar, ← mul_assoc, ι_sq_scalar,
     Algebra.smul_def]
 

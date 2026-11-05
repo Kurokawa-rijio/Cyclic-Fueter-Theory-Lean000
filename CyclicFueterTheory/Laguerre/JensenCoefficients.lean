@@ -90,7 +90,6 @@ theorem laguerreForm_reflected_half (c : ℕ → ℝ) (n : ℕ) :
   rw [← Finset.sum_range_reflect]
   refine Finset.sum_congr rfl (fun j hj => ?_)
   have hj' : j < n := Finset.mem_range.mp hj
-  dsimp only
   have e1 : n + 1 + (n - 1 - j) = 2 * n - j := by omega
   have e2 : 2 * n - (2 * n - j) = j := by omega
   rw [e1, e2]
